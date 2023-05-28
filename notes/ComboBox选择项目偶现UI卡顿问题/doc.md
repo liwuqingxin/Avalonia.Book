@@ -69,19 +69,19 @@ private void QueryFromServiceAndSetToUi(string name, object value)
 
 到这里仅仅通过阅读代码难以找到问题的根本原因。借助工具Performance Profiler查看程序执行的Timeline，如下图1所示，在最后一次卡顿中，UI Freeze显示的冻结时间约为**659ms**。
 
-![图1](D:\Source\Avalonia.Book\notes\ComboBox选择项目偶现UI卡顿问题\img\img1.png)
+![图1](img\img1.png)
 
 图1
 
 接着我们查看Hotspots模块，如图2所示，该时段主线程中直接被System.Threading.Monitor.Wait()等待了659ms。这就是UI卡住的直接原因。
 
-![图2](D:\Source\Avalonia.Book\notes\ComboBox选择项目偶现UI卡顿问题\img\img2.png)
+![图2](img\img2.png)
 
 图2
 
 再看图3中Wait函数下的调用堆栈，结论比较清晰了，Avalonia的Popup也是一个Win32窗口，其关闭时，会执行渲染器（CompositingRenderer）的销毁，其Dispose函数中，执行了Task.Wait()函数。因此，这个卡顿并不是我们自己的代码直接阻塞了UI线程。那么Avalonia渲染线程被阻塞的原因是什么呢？
 
-![图3](D:\Source\Avalonia.Book\notes\ComboBox选择项目偶现UI卡顿问题\img\img4.png)
+![图3](img\img4.png)
 
 图3
 
@@ -149,7 +149,7 @@ public UserModel SelectedModel
 
 此时，这个卡顿在一开始的几次将会必现，且等待时长将超过1s。下图简单示意了任务在线程池中的调度过程。根据图示，最后的Task11（渲染线程提交的任务），将会在5s后开始执行，即UI将会被阻塞5s。当然这些数据是示意数据。实际上，ThreadPool调度时，创建线程的间隔时长是一个根据系统环境、程序运行情况、等待线程数量等多种因素来计算获得的，实际上等待时间可能大于或者小于5s，但一般情况下差距不会太大。
 
-![img4](D:\Source\Avalonia.Book\notes\ComboBox选择项目偶现UI卡顿问题\img\img5.png)
+![img4](img\img5.png)
 
 图4
 
